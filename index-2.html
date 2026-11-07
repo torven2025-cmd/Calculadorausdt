@@ -1,0 +1,113 @@
+<!DOCTYPE html>
+<html lang="es"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>USDT ⇄ Bs</title>
+<style>
+:root{--bg1:#16b8b0;--bg2:#101417;--card:#23282d;--tx:#f2f4f7;--mu:#9aa3af;--ac:#22e3e0;--up:#37d84a;--dn:#ff4d4d;--bd:#3a4047}
+*{box-sizing:border-box}
+body{margin:0;min-height:100vh;color:var(--tx);font:16px system-ui,sans-serif;background:linear-gradient(180deg,var(--bg1) 0,var(--bg2) 55%) fixed;padding:16px}
+.top{max-width:420px;margin:auto;display:flex;justify-content:flex-end;gap:6px}
+.ib{width:44px;height:44px;border:0;background:none;color:#fff;border-radius:50%;display:grid;place-items:center}
+.ib svg{width:26px;height:26px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+.sp svg{animation:g .8s linear infinite}@keyframes g{to{transform:rotate(360deg)}}
+.logo{width:96px;height:96px;margin:6px auto 18px;border-radius:50%;border:7px solid transparent;background:linear-gradient(#111,#111) padding-box,conic-gradient(#f6c21a 0 33%,#1d4ed8 0 66%,#e11d2e 0) border-box;display:grid;place-items:center;font:800 46px system-ui;color:#fff}
+.c{max-width:420px;margin:auto;background:var(--card);border:1px solid var(--bd);border-radius:20px;padding:20px}
+.pill{background:var(--ac);color:#06383a;font-weight:700;text-align:center;padding:14px;border-radius:30px;width:80%;margin:0 auto 16px}
+.row{display:flex;align-items:center;gap:8px;border-bottom:2px solid #c9ced4;padding:6px 0;margin-top:14px}
+.row b{width:48px;font-size:18px;color:#e6e9ee}
+.row input{flex:1;min-width:0;background:none;border:0;outline:0;color:var(--tx);font-size:24px;text-align:right}
+.row button{background:none;border:0;color:#e6e9ee;padding:4px;display:grid}
+.row button svg{width:24px;height:24px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+.var{display:flex;align-items:center;justify-content:space-between;margin-top:18px;font-weight:700;font-size:18px}
+.var.up{color:var(--up)}.var.dn{color:var(--dn)}.var.nu{color:var(--mu)}
+.fecha{max-width:420px;margin:16px auto 0;background:#2c3238;border-radius:16px;padding:16px;font-weight:600;text-align:center}
+.nota{max-width:420px;margin:18px auto 0;text-align:center;font-size:12px;color:var(--mu)}
+.err{max-width:420px;margin:12px auto 0;text-align:center;font-size:13px;color:#ffb4b4}
+</style></head><body>
+<div class="top">
+  <button class="ib" id="rf" aria-label="Actualizar"><svg viewBox="0 0 24 24"><path d="M21 12a9 9 0 1 1-3-6.7"/><path d="M21 3v6h-6"/></svg></button>
+  <button class="ib" id="sh" aria-label="Compartir"><svg viewBox="0 0 24 24"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><path d="M8.6 10.5l6.8-4M8.6 13.5l6.8 4"/></svg></button>
+</div>
+<div class="logo">$</div>
+<div class="c">
+  <div class="pill">USDT</div>
+  <div class="row"><b>₮</b><input id="usd" type="text" inputmode="decimal" value="1,00"><button data-c="usd" aria-label="Copiar"><svg viewBox="0 0 24 24"><rect x="9" y="9" width="11" height="11" rx="2"/><path d="M5 15V6a2 2 0 0 1 2-2h9"/></svg></button></div>
+  <div class="row"><b>Bs</b><input id="bs" type="text" inputmode="decimal" placeholder="0,00"><button data-c="bs" aria-label="Copiar"><svg viewBox="0 0 24 24"><rect x="9" y="9" width="11" height="11" rx="2"/><path d="M5 15V6a2 2 0 0 1 2-2h9"/></svg></button></div>
+  <div class="var nu" id="var"><span id="fl">–</span><span id="vt">Cargando…</span></div>
+</div>
+<div class="fecha" id="fecha">—</div>
+<div class="err" id="err"></div>
+<div class="nota">Referencia calculada con datos del mercado P2P de Binance. No es una tasa oficial.</div>
+<script>
+const PROXY="/api/p2p", DIRECT="https://p2p.binance.com/bapi/c2c/v2/friendly/c2c/adv/search";
+const $=id=>document.getElementById(id);
+let precio=0, ultimo="usd";
+const f2=n=>n.toLocaleString("es-VE",{minimumFractionDigits:2,maximumFractionDigits:2});
+function num(s){
+  s=String(s).trim().replace(/\s/g,"");
+  if(s.includes(",")) s=s.replace(/\./g,"").replace(",",".");
+  const v=parseFloat(s); return isNaN(v)?0:v;
+}
+async function consultar(extra){
+  const body=JSON.stringify({asset:"USDT",fiat:"VES",tradeType:"BUY",page:1,rows:5,payTypes:[],publisherType:null,countries:[],...extra});
+  const errs=[];
+  for(const url of [PROXY,DIRECT]){
+    try{
+      const r=await fetch(url,{method:"POST",headers:{"Content-Type":"application/json"},body});
+      const t=await r.text(); let x;
+      try{x=JSON.parse(t)}catch(_){errs.push((url===PROXY?"Servidor ":"Directo ")+r.status);continue}
+      if(Array.isArray(x.data)) return x.data;
+      errs.push((url===PROXY?"Servidor ":"Directo ")+r.status+" sin datos");
+    }catch(e){errs.push((url===PROXY?"Servidor: ":"Directo: ")+e.message.slice(0,40))}
+  }
+  throw new Error(errs.join(" | "));
+}
+function mediana(a){const s=[...a].sort((x,y)=>x-y),m=s.length>>1;return s.length%2?s[m]:(s[m-1]+s[m])/2}
+function fechaTxt(d){
+  const dias=["Dom","Lun","Mar","Mié","Jue","Vie","Sáb"],p=n=>String(n).padStart(2,"0");
+  let h=d.getHours(),ap=h>=12?"PM":"AM";h=h%12||12;
+  return dias[d.getDay()]+", "+p(d.getDate())+"/"+p(d.getMonth()+1)+"/"+String(d.getFullYear()).slice(2)+" - "+h+":"+p(d.getMinutes())+" "+ap;
+}
+function variacion(){
+  const hoy=new Date().toDateString(); let base=precio;
+  try{
+    const g=JSON.parse(localStorage.getItem("usdt_base")||"null");
+    if(g&&g.d===hoy) base=g.p; else localStorage.setItem("usdt_base",JSON.stringify({d:hoy,p:precio}));
+  }catch(e){}
+  const dif=precio-base, pct=base?dif/base*100:0, el=$("var");
+  el.className="var "+(Math.abs(dif)<0.005?"nu":dif>0?"up":"dn");
+  $("fl").textContent=Math.abs(dif)<0.005?"–":dif>0?"▲":"▼";
+  $("vt").textContent=(dif>0?"+":dif<0?"−":"")+f2(Math.abs(dif))+" Bs ("+Math.abs(pct).toFixed(2)+"%)";
+}
+function calc(){
+  if(!precio) return;
+  if(ultimo==="usd") $("bs").value=num($("usd").value)?f2(num($("usd").value)*precio):"";
+  else $("usd").value=num($("bs").value)?f2(num($("bs").value)/precio):"";
+}
+async function actualizar(){
+  const b=$("rf"); b.classList.add("sp"); $("err").textContent="";
+  try{
+    let d=await consultar({publisherType:"merchant"});
+    if(!d.length) d=await consultar({});
+    const ps=d.map(a=>parseFloat(a.adv.price)).filter(Boolean);
+    if(!ps.length) throw new Error("Sin anuncios");
+    precio=mediana(ps);
+    $("fecha").textContent=fechaTxt(new Date());
+    variacion(); calc();
+  }catch(e){ $("err").textContent="No se pudo actualizar: "+e.message; }
+  b.classList.remove("sp");
+}
+$("usd").oninput=()=>{ultimo="usd";calc()};
+$("bs").oninput=()=>{ultimo="bs";calc()};
+$("rf").onclick=actualizar;
+document.querySelectorAll("[data-c]").forEach(bt=>bt.onclick=async()=>{
+  const v=$(bt.dataset.c).value;
+  try{await navigator.clipboard.writeText(v);bt.style.color="#37d84a";setTimeout(()=>bt.style.color="",800)}catch(e){}
+});
+$("sh").onclick=async()=>{
+  if(!precio) return;
+  const t=$("usd").value+" USDT = "+$("bs").value+" Bs (ref. Binance P2P, "+fechaTxt(new Date())+")";
+  try{ if(navigator.share) await navigator.share({text:t}); else await navigator.clipboard.writeText(t); }catch(e){}
+};
+actualizar(); setInterval(actualizar,30000);
+</script></body></html>
